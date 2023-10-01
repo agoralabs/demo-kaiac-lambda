@@ -1,3 +1,4 @@
+
 exports.handler = function(event, context) {
   
     // Load the AWS SDK for Node.js
@@ -28,6 +29,9 @@ exports.handler = function(event, context) {
         Message: null
     };
 
+    var body = JSON.parse(event['body']);
+    var command = body.command;
+
     var instances = [];
     ec2.describeInstances(describeParams, function(err, data) {
         if (err) {
@@ -45,7 +49,7 @@ exports.handler = function(event, context) {
             if (instances.length > 0){
                 var params = { InstanceIds: instances, DryRun: true };
 
-                if (event.command === "START") {
+                if (command === "START") {
                     // Call EC2 to start the selected instances
                     ec2.startInstances(params, function(err, data) {
                       console.log("Starting", data);
@@ -70,7 +74,7 @@ exports.handler = function(event, context) {
                         result.Message = "You don't have permission to start instances.";
                       }
                     });
-                  } else if (event.command === "STOP") {
+                  } else if (command === "STOP") {
                     // Call EC2 to stop the selected instances
                     ec2.stopInstances(params, function(err, data) {
                       if (err && err.code === 'DryRunOperation') {
