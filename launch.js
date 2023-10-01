@@ -23,6 +23,10 @@ exports.handler = function(event, context) {
         }]
     };
     
+    var result = {
+        Status: "undefined",
+        Message: null
+    };
 
     var instances = [];
     ec2.describeInstances(describeParams, function(err, data) {
@@ -51,13 +55,19 @@ exports.handler = function(event, context) {
                             if (err) {
                               context.fail(err);
                               console.log("Error", err);
+                              result.Status = "Error";
+                              result.Message = err;
                             } else if (data) {
                               context.succeed("Success");
                               console.log("Success", data.StartingInstances);
+                              result.Status = "Success";
+                              result.Message = data.StartingInstances;
                             }
                         });
                       } else {
                         console.log("You don't have permission to start instances.");
+                        result.Status = "Error";
+                        result.Message = "You don't have permission to start instances.";
                       }
                     });
                   } else if (event.command === "STOP") {
@@ -69,14 +79,20 @@ exports.handler = function(event, context) {
                             if (err) {
                               context.fail(err);
                               console.log("Error", err);
+                              result.Status = "Error";
+                              result.Message = err;
                             } else if (data) {
                               context.succeed("Success");
                               console.log("Success", data.StoppingInstances);
+                              result.Status = "Success";
+                              result.Message = data.StoppingInstances;
                             }
                         });
                       } else {
                         context.fail(err);
                         console.log("You don't have permission to stop instances");
+                        result.Status = "Error";
+                        result.Message = "You don't have permission to stop instances.";
                       }
                     });
                   }
@@ -85,5 +101,5 @@ exports.handler = function(event, context) {
        }
     });
 
-
+    return result;
   };
