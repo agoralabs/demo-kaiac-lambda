@@ -8,11 +8,21 @@ exports.handler = function(event, context) {
     // Create EC2 service object
     var ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
     
-    var params = {
-      InstanceIds: ["i-06b6843ab6c4ac9bf"],
-      DryRun: true
-    };
+    //var params = {
+      //InstanceIds: ["i-06b6843ab6c4ac9bf"],
+      //DryRun: true
+    //};
     
+    var params = { 
+        Filters: [
+        {
+            Name:"tag:Deployment",
+            Values: [
+                "backend-alfresco-staging"
+            ]
+        }],
+        DryRun: true
+    };
     
     if (event.command === "START") {
       // Call EC2 to start the selected instances
