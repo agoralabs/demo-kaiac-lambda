@@ -166,7 +166,7 @@ exports.handler = async(event) => {
 
           var filters = [
             {
-                Name: tagName,
+                Name: `tag:${tagName}`,
                 Values: [
                   tagPrefixValue
                 ]
@@ -195,11 +195,11 @@ exports.handler = async(event) => {
           };
 
       } catch (error) {
-          console.error(`Erreur lors de l'arrêt de l'instance EC2 : ${error}`);
+          console.error(`Erreur lors de la récupération de l\'id l\'instance EC2 : ${error}`);
           
           return {
               statusCode: 500,
-              body: JSON.stringify({message: "Erreur lors de l\'arrêt de l\'instance EC2."})
+              body: JSON.stringify({message: `Erreur lors de la récupération de l\'id l\'instance EC2 : ${error}`})
           };
           
       }
@@ -213,7 +213,7 @@ exports.handler = async(event) => {
 
           var filters = [
             {
-                Name: tagName,
+                Name: `tag:${tagName}`,
                 Values: [
                   tagPrefixValue
                 ]
