@@ -27,6 +27,24 @@ async function getInstanceId(filters) {
     }
 }
 
+async function getInstanceStatus(filters) {
+  var describeParams = { 
+      Filters: filters
+  };
+
+  try {
+      const data = await ec2.describeInstances(describeParams).promise();
+      
+      // Extrayez le statut de l'instance
+      const instanceStatus = data.Reservations[0].Instances[0].State.Name;
+
+      return instanceStatus;
+  } catch (err) {
+      console.error('Erreur lors de la description des instances:', err);
+      throw err; // Propagez l'erreur vers le code appelant si nécessaire
+  }
+}
+
 async function stopInstance(instances) {
 
     var params = { InstanceIds: instances};
@@ -187,7 +205,43 @@ exports.handler = async(event) => {
       }
     }
 
+    if (command == "GET_INSTANCE_STATUS") {
+      try {
+          
+          var tagName = body.tagName;
+          var tagPrefixValue = body.tagPrefixValue;
 
+          var filters = [
+            {
+                Name: tagName,
+                Values: [
+                  tagPrefixValue
+                ]
+            },
+            {
+                Name:"instance-state-name",
+                Values: [
+                    "running","pending","stopped"
+                ]
+            }
+          ]
+          const instanceStatus = await getInstanceStatus(filters);
+
+          return {
+            statusCode: 200,
+            body: JSON.stringify({command: command, instanceStatus: instanceStatus, message: "Statut de l'instance récupéré avec succès"})
+          };
+
+      } catch (error) {
+          console.error(`Erreur lors de la récupération du statut de l\'instance : ${error}`);
+          
+          return {
+              statusCode: 500,
+              body: JSON.stringify({message: `Erreur lors de la récupération du statut de l\'instance : ${error}`})
+          };
+          
+      }
+    }
 
     if (command == "START_SSM_AUTOMATION") {
       try {
