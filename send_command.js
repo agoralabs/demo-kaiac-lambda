@@ -1,13 +1,13 @@
 // Load the AWS SDK for Node.js
 const AWS = require('aws-sdk');
 
-async function getInstanceId(filters) {
+async function getInstanceId(EC2, filters) {
     var describeParams = { 
         Filters: filters
     };
 
     try {
-        const data = await ec2.describeInstances(describeParams).promise();
+        const data = await EC2.describeInstances(describeParams).promise();
         
         var instances = [];
 
@@ -27,13 +27,13 @@ async function getInstanceId(filters) {
     }
 }
 
-async function getInstanceStatus(filters) {
+async function getInstanceStatus(EC2, filters) {
   var describeParams = { 
       Filters: filters
   };
 
   try {
-      const data = await ec2.describeInstances(describeParams).promise();
+      const data = await EC2.describeInstances(describeParams).promise();
       
       // Extrayez le statut de l'instance
       const instanceStatus = data.Reservations[0].Instances[0].State.Name;
@@ -45,24 +45,24 @@ async function getInstanceStatus(filters) {
   }
 }
 
-async function stopInstance(instances) {
+async function stopInstance(EC2, instances) {
 
     var params = { InstanceIds: instances};
-    await ec2.stopInstances(params).promise();
+    await EC2.stopInstances(params).promise();
     console.log(`Instance EC2 ${instances} arrêtée avec succès.`);
 
 }
 
-async function startInstances(instances) {
+async function startInstances(EC2, instances) {
 
   var params = { InstanceIds: instances};
-  await ec2.startInstances(params).promise();
+  await EC2.startInstances(params).promise();
   console.log(`Instance EC2 ${instances} démarrée avec succès.`);
 
 }
 
 
-async function startAutomationExecution(instanceId, ssmDocument) {
+async function startAutomationExecution(SSM, instanceId, ssmDocument) {
 
   const params = {
     DocumentName: ssmDocument, // Le nom du document d'automatisation
@@ -84,7 +84,7 @@ async function startAutomationExecution(instanceId, ssmDocument) {
 
 }
 
-async function getAutomationExecutionStatus(executionId){
+async function getAutomationExecutionStatus(SSM, executionId){
     const params = {
       AutomationExecutionId: executionId, // L'ID de l'exécution d'automatisation à récupérer
     };
@@ -102,7 +102,7 @@ async function getAutomationExecutionStatus(executionId){
 
 }
 
-async function sendKaiacCommand(instances, commandName){
+async function sendKaiacCommand(SSM, instances, commandName){
   const params = {
     InstanceIds: instances,
     DocumentName: 'Kaiac_Command',
@@ -124,7 +124,7 @@ async function sendKaiacCommand(instances, commandName){
 
 }
 
-async function getCommandInvocationStatus(commandId, instanceId){
+async function getCommandInvocationStatus(SSM, commandId, instanceId){
   const params = {
     CommandId: commandId,
     InstanceId: instanceId
@@ -153,7 +153,7 @@ exports.handler = async(event) => {
     AWS.config.update({region: awsRegion});
 
     // Create EC2 service object
-    const ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
+    const EC2 = new AWS.EC2({apiVersion: '2016-11-15'});
 
     // Create SSM service object
     const SSM = new AWS.SSM();
@@ -178,7 +178,7 @@ exports.handler = async(event) => {
                 ]
             }
           ]
-          const instances = await getInstanceId(filters);
+          const instances = await getInstanceId(EC2, filters);
 
           if(instances.length == 0){
 
@@ -225,7 +225,7 @@ exports.handler = async(event) => {
                 ]
             }
           ]
-          const instanceStatus = await getInstanceStatus(filters);
+          const instanceStatus = await getInstanceStatus(EC2, filters);
 
           return {
             statusCode: 200,
@@ -249,7 +249,7 @@ exports.handler = async(event) => {
           var instanceId = body.instanceId;
           var ssmDocument = body.ssmDocument;
 
-          const executionId = await startAutomationExecution(instanceId, ssmDocument);
+          const executionId = await startAutomationExecution(SSM, instanceId, ssmDocument);
 
           return {
             statusCode: 200,
@@ -273,7 +273,7 @@ exports.handler = async(event) => {
         
           var executionId = body.executionId;
 
-          const status = await getAutomationExecutionStatus(executionId);
+          const status = await getAutomationExecutionStatus(SSM, executionId);
 
           return {
             statusCode: 200,
@@ -299,7 +299,7 @@ exports.handler = async(event) => {
           var instances = [instanceId];
           var kaiacCommand = body.kaiacCommand;
 
-          const commandId = await sendKaiacCommand(instances, kaiacCommand);
+          const commandId = await sendKaiacCommand(SSM, instances, kaiacCommand);
           
           return {
             statusCode: 200,
@@ -323,7 +323,7 @@ exports.handler = async(event) => {
           var instanceId = body.instanceId;
           var commandId = body.commandId;
 
-          const status = await getCommandInvocationStatus(commandId, instanceId);
+          const status = await getCommandInvocationStatus(SSM, commandId, instanceId);
 
           return {
             statusCode: 200,
@@ -346,7 +346,7 @@ exports.handler = async(event) => {
           
           var instanceId = body.instanceId;
           var instances = [instanceId];
-          stopInstance(instances);
+          stopInstance(EC2, instances);
 
           return {
             statusCode: 200,
@@ -369,7 +369,7 @@ exports.handler = async(event) => {
         
           var instanceId = body.instanceId;
           var instances = [instanceId];
-          startInstances(instances);
+          startInstances(EC2, instances);
           
           return {
             statusCode: 200,
