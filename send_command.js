@@ -102,10 +102,10 @@ async function getAutomationExecutionStatus(SSM, executionId){
 
 }
 
-async function sendKaiacCommand(SSM, instances, commandName){
+async function sendKaiacCommand(SSM, instances, commandName, documentName){
   const params = {
     InstanceIds: instances,
-    DocumentName: 'Kaiac_Command',
+    DocumentName: documentName,
     Parameters: {
       Command: [commandName],
     },
@@ -298,8 +298,9 @@ exports.handler = async(event) => {
           var instanceId = body.instanceId;
           var instances = [instanceId];
           var kaiacCommand = body.kaiacCommand;
+          var documentName = body.documentName;
 
-          const commandId = await sendKaiacCommand(SSM, instances, kaiacCommand);
+          const commandId = await sendKaiacCommand(SSM, instances, kaiacCommand, documentName);
           
           return {
             statusCode: 200,
