@@ -1,6 +1,27 @@
 // Load the AWS SDK for Node.js
 const AWS = require('aws-sdk');
 
+async function getInstancesTagNsValue(EC2, filters) {
+  var describeParams = { 
+      Filters: filters
+  };
+
+  try {
+      const data = await EC2.describeInstances(describeParams).promise();
+    
+      const namespaces = data.Reservations.flatMap(reservation =>
+        reservation.Instances.map(instance =>
+          (instance.Tags.find(tag => tag.Key === 'Namespace') || {}).Value
+        )
+      ).filter(Boolean);
+
+      return namespaces;
+  } catch (err) {
+      console.error('Erreur lors de la description des namespaces:', err);
+      throw err; // Propagez l'erreur vers le code appelant si nécessaire
+  }
+}
+
 async function getInstanceId(EC2, filters) {
     var describeParams = { 
         Filters: filters
@@ -157,6 +178,51 @@ exports.handler = async(event) => {
 
     // Create SSM service object
     const SSM = new AWS.SSM();
+    
+    if (command == "GET_INSTANCES_NAMESPACES") {
+      try {
+          
+          var applicationName = body.applicationName;
+
+          var filters = [
+            {
+                Name: `tag:Application`,
+                Values: [
+                  applicationName
+                ]
+            },
+            {
+                Name:"instance-state-name",
+                Values: [
+                    "running","pending","stopped"
+                ]
+            }
+          ]
+          const namespaces = await getInstancesTagNsValue(EC2, filters);
+
+          if(namespaces.length == 0){
+
+            return {
+                statusCode: 404,
+                body: JSON.stringify({message: "No ec2 instance found"})
+            };
+          }
+
+          return {
+            statusCode: 200,
+            body: JSON.stringify({namespaces: namespaces, message: "Instances EC2 trouvées"})
+          };
+
+      } catch (error) {
+          console.error(`Erreur lors de la récupération du tag l\'instance EC2 : ${error}`);
+          
+          return {
+              statusCode: 500,
+              body: JSON.stringify({message: `Erreur lors de la récupération du tag l\'instance EC2 : ${error}`})
+          };
+          
+      }
+    }
 
     if (command == "GET_INSTANCE_ID") {
       try {
