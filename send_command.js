@@ -23,6 +23,32 @@ async function getInstancesTagNsValue(EC2, filters) {
 }
 
 async function getInstanceId(EC2, filters) {
+  var describeParams = { 
+      Filters: filters
+  };
+
+  try {
+      const data = await EC2.describeInstances(describeParams).promise();
+      
+      var instances = [];
+
+      for (var i = 0; i < data.Reservations.length; i++) {
+          for (var j = 0; j < data.Reservations[i].Instances.length; j++) {
+              var instanceId = data.Reservations[i].Instances[j].InstanceId;
+              if (instanceId != undefined && instanceId != null && instanceId != "") {
+                  instances.push(instanceId);
+              }
+          }
+      }
+
+      return instances;
+  } catch (err) {
+      console.error('Erreur lors de la description des instances:', err);
+      throw err; // Propagez l'erreur vers le code appelant si nécessaire
+  }
+}
+
+async function getInstancePublicIP(EC2, filters) {
     var describeParams = { 
         Filters: filters
     };
@@ -30,22 +56,43 @@ async function getInstanceId(EC2, filters) {
     try {
         const data = await EC2.describeInstances(describeParams).promise();
         
-        var instances = [];
+      // Extrayez l'IP publique'
+      const publicIP = data.Reservations[0].Instances[0].PublicIpAddress;
 
-        for (var i = 0; i < data.Reservations.length; i++) {
-            for (var j = 0; j < data.Reservations[i].Instances.length; j++) {
-                var instanceId = data.Reservations[i].Instances[j].InstanceId;
-                if (instanceId != undefined && instanceId != null && instanceId != "") {
-                    instances.push(instanceId);
-                }
-            }
-        }
-
-        return instances;
+        return publicIP;
     } catch (err) {
         console.error('Erreur lors de la description des instances:', err);
         throw err; // Propagez l'erreur vers le code appelant si nécessaire
     }
+}
+
+async function changeResourceRecordSets(ROUTE53, hostedZoneId, dnsName, dnsValue){
+  const changeParams = {
+    HostedZoneId: hostedZoneId,
+    ChangeBatch: {
+      Changes: [
+        {
+          Action: 'UPSERT',
+          ResourceRecordSet: {
+            Name: dnsName,
+            Type: 'A',
+            TTL: 300,
+            ResourceRecords: [{ Value: dnsValue }]
+          }
+        }
+      ]
+    }
+  };
+
+  try {
+    await ROUTE53.changeResourceRecordSets(changeParams).promise();
+    console.log('Le record DNS de type A a été mis à jour avec l\'adresse IP :', dnsValue);
+    return 'Succès';
+  } catch (err) {
+    console.error('Erreur lors de la mise à jour du record DNS :', err);
+    return err;
+  }
+
 }
 
 async function getInstanceStatus(EC2, filters) {
@@ -178,7 +225,75 @@ exports.handler = async(event) => {
 
     // Create SSM service object
     const SSM = new AWS.SSM();
+
+    // Create ROUTE53 service object
+    const ROUTE53 = new AWS.Route53();
+
     
+    if (command == "UPDATE_DNS_RECORD") {
+      try {
+        
+          var dnsName = body.dnsName;
+          var dnsValue = body.dnsValue;
+          var hostedZoneId = body.hostedZoneId;
+
+          const commandStatus = await changeResourceRecordSets(ROUTE53, hostedZoneId, dnsName, dnsValue);
+          
+          return {
+            statusCode: 200,
+            body: JSON.stringify({command: command, commandStatus: commandStatus, message: "Commande lancée avec succès."})
+          };
+
+      } catch (error) {
+          console.error(`Erreur lors du lancement de la commande : ${error}`);
+
+          return {
+              statusCode: 500,
+              body: JSON.stringify({message: `Erreur lors du lancement de la commande : ${error}`})
+          };
+          
+      }
+    }
+
+    if (command == "GET_INSTANCE_PUBLIC_IP") {
+      try {
+          
+          var tagName = body.tagName;
+          var tagPrefixValue = body.tagPrefixValue;
+
+          var filters = [
+            {
+                Name: `tag:${tagName}`,
+                Values: [
+                  tagPrefixValue
+                ]
+            },
+            {
+                Name:"instance-state-name",
+                Values: [
+                    "running"
+                ]
+            }
+          ]
+
+          const publicIP = await getInstancePublicIP(EC2, filters);
+
+          return {
+            statusCode: 200,
+            body: JSON.stringify({command: command, instancePublicIP: publicIP, message: "IP publique trouvée"})
+          };
+
+      } catch (error) {
+          console.error(`Erreur lors de la récupération de l\'IP publique trouvée : ${error}`);
+          
+          return {
+              statusCode: 500,
+              body: JSON.stringify({message: `Erreur lors de la récupération de l\'IP publique trouvée : ${error}`})
+          };
+          
+      }
+    }
+
     if (command == "GET_INSTANCES_NAMES") {
       try {
           
