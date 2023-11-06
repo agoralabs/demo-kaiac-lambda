@@ -11,13 +11,13 @@ async function getInstancesTagNsValue(EC2, filters) {
     
       const namespaces = data.Reservations.flatMap(reservation =>
         reservation.Instances.map(instance =>
-          (instance.Tags.find(tag => tag.Key === 'Namespace') || {}).Value
+          (instance.Tags.find(tag => tag.Key === 'Application') || {}).Value
         )
       ).filter(Boolean);
 
       return namespaces;
   } catch (err) {
-      console.error('Erreur lors de la description des namespaces:', err);
+      console.error('Erreur lors de la description des instances:', err);
       throw err; // Propagez l'erreur vers le code appelant si nécessaire
   }
 }
@@ -179,16 +179,16 @@ exports.handler = async(event) => {
     // Create SSM service object
     const SSM = new AWS.SSM();
     
-    if (command == "GET_INSTANCES_NAMESPACES") {
+    if (command == "GET_INSTANCES_NAMES") {
       try {
           
-          var applicationName = body.applicationName;
+          var applicationNamespace = body.applicationNamespace;
 
           var filters = [
             {
-                Name: `tag:Application`,
+                Name: `tag:Namespace`,
                 Values: [
-                  applicationName
+                  applicationNamespace
                 ]
             },
             {
@@ -198,9 +198,9 @@ exports.handler = async(event) => {
                 ]
             }
           ]
-          const namespaces = await getInstancesTagNsValue(EC2, filters);
+          const applicationNames = await getInstancesTagNsValue(EC2, filters);
 
-          if(namespaces.length == 0){
+          if(applicationNames.length == 0){
 
             return {
                 statusCode: 404,
@@ -210,7 +210,7 @@ exports.handler = async(event) => {
 
           return {
             statusCode: 200,
-            body: JSON.stringify({namespaces: namespaces, message: "Instances EC2 trouvées"})
+            body: JSON.stringify({applicationNames: applicationNames, message: "Instances EC2 trouvées"})
           };
 
       } catch (error) {
