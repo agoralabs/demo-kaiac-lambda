@@ -1,0 +1,16 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 16
+    commands:
+      - echo install process started
+  build:
+    commands:
+      - echo build process started now
+      - current_dir=${PWD}
+      - zip ${TF_VAR_ENV_APP_LA_NAME}.zip ${TF_VAR_ENV_APP_LA_NAME}.js
+  post_build:
+    commands:
+      - echo build process finished
+      - aws lambda update-function-code --function-name ${TF_VAR_ENV_APP_LA_NAME} --zip-file fileb://${current_dir}/${TF_VAR_ENV_APP_LA_NAME}.zip --region ${TF_VAR_ENV_APP_GL_AWS_REGION}
